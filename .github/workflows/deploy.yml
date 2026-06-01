@@ -53,53 +53,53 @@ jobs:
       ||
       (github.event_name == 'push' && github.repository == 'o861cloudflare/dockerstack-s3proxy-2')
       || 
-      (github.event_name == 'schedule' && github.event.schedule == '3 0 * * *' && github.repository == 'hoaihoa981/dockerstack-s3proxy')
+      (github.event_name == 'schedule' && github.event.schedule == '3 0 * * *' && github.repository == 'o25110602-yn/dockerstack-agycli-auth')
       ||
-      (github.event_name == 'schedule' && github.event.schedule == '3 1 * * *' && github.repository == 'hoaihoa981/dockerstack-s3proxy')
+      (github.event_name == 'schedule' && github.event.schedule == '3 1 * * *' && github.repository == 'o25110602-yn/dockerstack-agycli-auth')
       ||
-      (github.event_name == 'schedule' && github.event.schedule == '3 2 * * *' && github.repository == 'hoaihoa981/dockerstack-s3proxy')
+      (github.event_name == 'schedule' && github.event.schedule == '3 2 * * *' && github.repository == 'o25110602-yn/dockerstack-agycli-auth')
       ||
-      (github.event_name == 'schedule' && github.event.schedule == '3 3 * * *' && github.repository == 'hoaihoa981/dockerstack-s3proxy')
+      (github.event_name == 'schedule' && github.event.schedule == '3 3 * * *' && github.repository == 'o25110602-yn/dockerstack-agycli-auth')
       ||
-      (github.event_name == 'schedule' && github.event.schedule == '3 4 * * *' && github.repository == 'hoaihoa981/dockerstack-s3proxy')
+      (github.event_name == 'schedule' && github.event.schedule == '3 4 * * *' && github.repository == 'o25110602-yn/dockerstack-agycli-auth')
       ||
-      (github.event_name == 'schedule' && github.event.schedule == '3 5 * * *' && github.repository == 'hoaihoa981/dockerstack-s3proxy')
+      (github.event_name == 'schedule' && github.event.schedule == '3 5 * * *' && github.repository == 'o25110602-yn/dockerstack-agycli-auth')
       ||
-      (github.event_name == 'schedule' && github.event.schedule == '3 6 * * *' && github.repository == 'hoaihoa981/dockerstack-s3proxy')
+      (github.event_name == 'schedule' && github.event.schedule == '3 6 * * *' && github.repository == 'o25110602-yn/dockerstack-agycli-auth')
       ||
-      (github.event_name == 'schedule' && github.event.schedule == '3 7 * * *' && github.repository == 'hoaihoa981/dockerstack-s3proxy')
+      (github.event_name == 'schedule' && github.event.schedule == '3 7 * * *' && github.repository == 'o25110602-yn/dockerstack-agycli-auth')
       ||
-      (github.event_name == 'schedule' && github.event.schedule == '3 8 * * *' && github.repository == 'hoaihoa981/dockerstack-s3proxy')
+      (github.event_name == 'schedule' && github.event.schedule == '3 8 * * *' && github.repository == 'o25110602-yn/dockerstack-agycli-auth')
       ||
-      (github.event_name == 'schedule' && github.event.schedule == '3 9 * * *' && github.repository == 'hoaihoa981/dockerstack-s3proxy')
+      (github.event_name == 'schedule' && github.event.schedule == '3 9 * * *' && github.repository == 'o25110602-yn/dockerstack-agycli-auth')
       ||
-      (github.event_name == 'schedule' && github.event.schedule == '3 10 * * *' && github.repository == 'hoaihoa981/dockerstack-s3proxy')
+      (github.event_name == 'schedule' && github.event.schedule == '3 10 * * *' && github.repository == 'o25110602-yn/dockerstack-agycli-auth')
       ||
-      (github.event_name == 'schedule' && github.event.schedule == '3 11 * * *' && github.repository == 'hoaihoa981/dockerstack-s3proxy')
+      (github.event_name == 'schedule' && github.event.schedule == '3 11 * * *' && github.repository == 'o25110602-yn/dockerstack-agycli-auth')
       ||
-      (github.event_name == 'schedule' && github.event.schedule == '3 12 * * *' && github.repository == 'hauo8627/dockerstack-s3proxy')
+      (github.event_name == 'schedule' && github.event.schedule == '3 12 * * *' && github.repository == 'oh250531-got/dockerstack-agycli-auth')
       ||
-      (github.event_name == 'schedule' && github.event.schedule == '3 13 * * *' && github.repository == 'hauo8627/dockerstack-s3proxy')
+      (github.event_name == 'schedule' && github.event.schedule == '3 13 * * *' && github.repository == 'oh250531-got/dockerstack-agycli-auth')
       ||
-      (github.event_name == 'schedule' && github.event.schedule == '3 14 * * *' && github.repository == 'hauo8627/dockerstack-s3proxy')
+      (github.event_name == 'schedule' && github.event.schedule == '3 14 * * *' && github.repository == 'oh250531-got/dockerstack-agycli-auth')
       ||
-      (github.event_name == 'schedule' && github.event.schedule == '3 15 * * *' && github.repository == 'hauo8627/dockerstack-s3proxy')
+      (github.event_name == 'schedule' && github.event.schedule == '3 15 * * *' && github.repository == 'oh250531-got/dockerstack-agycli-auth')
       ||
-      (github.event_name == 'schedule' && github.event.schedule == '3 16 * * *' && github.repository == 'hauo8627/dockerstack-s3proxy')
+      (github.event_name == 'schedule' && github.event.schedule == '3 16 * * *' && github.repository == 'oh250531-got/dockerstack-agycli-auth')
       ||
-      (github.event_name == 'schedule' && github.event.schedule == '3 17 * * *' && github.repository == 'hauo8627/dockerstack-s3proxy')
+      (github.event_name == 'schedule' && github.event.schedule == '3 17 * * *' && github.repository == 'oh250531-got/dockerstack-agycli-auth')
       ||
-      (github.event_name == 'schedule' && github.event.schedule == '3 18 * * *' && github.repository == 'hauo8627/dockerstack-s3proxy')
+      (github.event_name == 'schedule' && github.event.schedule == '3 18 * * *' && github.repository == 'oh250531-got/dockerstack-agycli-auth')
       ||
-      (github.event_name == 'schedule' && github.event.schedule == '3 19 * * *' && github.repository == 'hauo8627/dockerstack-s3proxy')
+      (github.event_name == 'schedule' && github.event.schedule == '3 19 * * *' && github.repository == 'oh250531-got/dockerstack-agycli-auth')
       ||
-      (github.event_name == 'schedule' && github.event.schedule == '3 20 * * *' && github.repository == 'hauo8627/dockerstack-s3proxy')
+      (github.event_name == 'schedule' && github.event.schedule == '3 20 * * *' && github.repository == 'oh250531-got/dockerstack-agycli-auth')
       ||
-      (github.event_name == 'schedule' && github.event.schedule == '3 21 * * *' && github.repository == 'hauo8627/dockerstack-s3proxy')
+      (github.event_name == 'schedule' && github.event.schedule == '3 21 * * *' && github.repository == 'oh250531-got/dockerstack-agycli-auth')
       ||
-      (github.event_name == 'schedule' && github.event.schedule == '3 22 * * *' && github.repository == 'hauo8627/dockerstack-s3proxy')
+      (github.event_name == 'schedule' && github.event.schedule == '3 22 * * *' && github.repository == 'oh250531-got/dockerstack-agycli-auth')
       ||
-      (github.event_name == 'schedule' && github.event.schedule == '3 23 * * *' && github.repository == 'hauo8627/dockerstack-s3proxy')
+      (github.event_name == 'schedule' && github.event.schedule == '3 23 * * *' && github.repository == 'oh250531-got/dockerstack-agycli-auth')
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/runs
