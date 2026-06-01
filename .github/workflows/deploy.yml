@@ -49,7 +49,7 @@ jobs:
     if: >-
       (github.event_name == 'workflow_dispatch')
       ||
-      (github.event_name == 'push' && github.repository == 'o861cloudflare/dockerstack-s3proxy')
+      (github.event_name == 'push' && github.repository == 'oh250531-got/dockerstack-agycli-auth')
       ||
       (github.event_name == 'push' && github.repository == 'o861cloudflare/dockerstack-s3proxy-2')
       || 
