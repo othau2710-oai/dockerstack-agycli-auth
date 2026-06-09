@@ -159,11 +159,11 @@
               </div>
 
               <div class="flex gap-3">
-                <button class="btn-primary" id="btn-submit-code" style="flex: 1; justify-content: center;">
+                <button class="btn-primary" id="btn-submit-code" style="flex: 1; justify-content: center">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12" /></svg>
                   Confirm Code
                 </button>
-                <button class="btn-secondary" id="btn-paste-confirm" style="flex: 1; justify-content: center;">
+                <button class="btn-secondary" id="btn-paste-confirm" style="flex: 1; justify-content: center">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
                     <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
@@ -255,21 +255,21 @@
           <div class="page-header">
             <h2 class="page-title">Saved Tokens</h2>
             <div class="token-toolbar">
-            <button class="btn-light" id="btn-refresh-tokens">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="23 4 23 10 17 10" />
-                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-              </svg>
-              Refresh
-            </button>
-            <button class="btn-secondary" id="btn-export-excel">Export Excel</button>
-            <button class="btn-light" id="btn-backup-tokens">Backup JSON</button>
-            <button class="btn-light" id="btn-restore-tokens">Restore JSON</button>
-            <input type="file" id="input-restore-file" accept="application/json" class="hidden" />
+              <button class="btn-light" id="btn-refresh-tokens">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="23 4 23 10 17 10" />
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                </svg>
+                Refresh
+              </button>
+              <button class="btn-secondary" id="btn-export-excel">Export Excel</button>
+              <button class="btn-light" id="btn-backup-tokens">Backup JSON</button>
+              <button class="btn-light" id="btn-restore-tokens">Restore JSON</button>
+              <input type="file" id="input-restore-file" accept="application/json" class="hidden" />
+            </div>
           </div>
-        </div>
 
-        <div class="token-filters-container">
+          <div class="token-filters-container">
             <div class="token-filters">
               <div class="filter-input-wrapper">
                 <input class="input" id="filter-email" placeholder="Filter email" />
@@ -338,11 +338,13 @@
           <span class="deploy-divider">|</span>
           <span class="deploy-item"><span class="deploy-label">Repo:</span> <span id="deploy-repo">N/A</span></span>
           <span class="deploy-divider">|</span>
-          <span class="deploy-item"><span class="deploy-label">Commit:</span> <a id="deploy-commit-link" href="#" target="_blank" class="deploy-link">N/A</a></span>
+          <span class="deploy-item"
+            ><span class="deploy-label">Commit:</span> <a id="deploy-commit-link" href="#" target="_blank" class="deploy-link">N/A</a></span
+          >
           <span class="deploy-divider">|</span>
           <span class="deploy-item"><span class="deploy-label">Date:</span> <span id="deploy-date">N/A</span></span>
           <span class="deploy-divider">|</span>
-          <span class="deploy-item"><span class="deploy-label">Host:</span> <span id="deploy-host">N/A</span></span>
+          <span class="deploy-item"><span class="deploy-label">Host2:</span> <span id="deploy-host">N/A</span></span>
         </div>
         <button class="btn-deploy-details" id="btn-deploy-details" title="View Runtime Env Info">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -367,13 +369,13 @@
           <div class="tunnel-endpoints-section">
             <h4 class="section-title">Active Tunnel Endpoints</h4>
             <div class="tunnel-buttons" id="tunnel-endpoints-list">
-              <span class="text-muted" style="font-size: 0.8125rem;">No active tunnels found.</span>
+              <span class="text-muted" style="font-size: 0.8125rem">No active tunnels found.</span>
             </div>
           </div>
-          
-          <div class="env-vars-section" style="margin-top: 24px;">
+
+          <div class="env-vars-section" style="margin-top: 24px">
             <h4 class="section-title">Runner Environment Variables</h4>
-            <div class="table-wrapper" style="margin-top: 16px; max-height: 400px; overflow-y: auto;">
+            <div class="table-wrapper" style="margin-top: 16px; max-height: 400px; overflow-y: auto">
               <table class="env-vars-table">
                 <thead>
                   <tr>
@@ -392,7 +394,6 @@
         </div>
       </div>
     </div>
-
 
     <!-- Toast container -->
     <div class="toast-container" id="toast-container"></div>
