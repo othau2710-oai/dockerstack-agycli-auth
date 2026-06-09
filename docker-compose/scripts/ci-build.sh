@@ -4,9 +4,9 @@
 #
 #  - Đọc cấu hình compose đã resolve (theo đúng profiles đang bật).
 #  - Build MỌI service có "build:" bằng BuildKit cache (gha hoặc local),
-#    --load vào docker với ĐÚNG tag mà compose mong đợi.
+#    --load vào docker với ĐÚNG tag mà compose mong đợi (kể cả service
+#    không khai báo image:, ví dụ webssh → <project>-webssh).
 #  - Sau đó deploy bằng `dc.sh up --no-build` (không build lại lần 2).
-#    → Nếu có service build nào thiếu image: name, tự fallback về --build.
 #  - Tuỳ chọn: save/load image công khai (non-build) để cache trên runner.
 #
 #  Env:
@@ -35,33 +35,34 @@ if [ -n "${IMAGE_TAR:-}" ] && [ -f "$IMAGE_TAR" ]; then
   docker load -i "$IMAGE_TAR" || true
 fi
 
-# ── (2) Lấy danh sách service có build: ───────────────────────
-mapfile -t BUILD_ROWS < <(printf '%s' "$CONFIG_JSON" | jq -r '
+# ── (2) Lấy DANH SÁCH TÊN service có build: (1 cột → không lỗi TAB) ─
+mapfile -t BUILD_SVCS < <(printf '%s' "$CONFIG_JSON" | jq -r '
   .services | to_entries[]
   | select(.value.build != null)
-  | [ .key,
-      (.value.image // ""),
-      (.value.build.context // "."),
-      (.value.build.dockerfile // "Dockerfile") ] | @tsv')
+  | .key')
 
-ALL_TAGGED=1
 NEW_CACHE_DIR="${LOCAL_CACHE_DIR}-new"
 [ "$CACHE_TYPE" = "local" ] && mkdir -p "$LOCAL_CACHE_DIR" "$NEW_CACHE_DIR"
 
-for row in "${BUILD_ROWS[@]:-}"; do
-  [ -z "$row" ] && continue
-  IFS=$'\t' read -r svc image ctx dockerfile <<< "$row"
+# Hàm đọc 1 field từ JSON theo service
+cfg() { printf '%s' "$CONFIG_JSON" | jq -r --arg s "$1" "$2"; }
 
+for svc in "${BUILD_SVCS[@]:-}"; do
+  [ -z "$svc" ] && continue
+
+  # Lấy ĐÚNG tag compose sẽ dùng (kể cả default <project>-<service>)
+  image="$($DC config --images "$svc" 2>/dev/null | head -n1 || true)"
   if [ -z "$image" ]; then
-    echo "⚠️  Service '$svc' không có image: → để compose tự build (fallback --build)."
-    ALL_TAGGED=0
-    continue
+    image="${PROJECT_NAME:-myapp}-${svc}"   # fallback an toàn
   fi
 
-  # Resolve đường dẫn Dockerfile
+  ctx="$(cfg "$svc" '.services[$s].build.context // "."')"
+  dockerfile="$(cfg "$svc" '.services[$s].build.dockerfile // "Dockerfile"')"
   if [[ "$dockerfile" = /* ]]; then df="$dockerfile"; else df="$ctx/$dockerfile"; fi
 
   echo "==> Build [$svc] → $image"
+  echo "    context=$ctx  dockerfile=$df"
+
   if [ "$CACHE_TYPE" = "local" ]; then
     docker buildx build \
       --file "$df" --tag "$image" \
@@ -83,14 +84,9 @@ if [ "$CACHE_TYPE" = "local" ] && [ -d "$NEW_CACHE_DIR" ]; then
   mv "$NEW_CACHE_DIR" "$LOCAL_CACHE_DIR"
 fi
 
-# ── (3) Deploy ────────────────────────────────────────────────
-if [ "$ALL_TAGGED" = "1" ]; then
-  echo "==> Tất cả service build đã có sẵn image → up --no-build"
-  $DC up -d --no-build --remove-orphans
-else
-  echo "==> Có service chưa pre-build → up --build (an toàn)"
-  $DC up -d --build --remove-orphans
-fi
+# ── (3) Deploy: mọi service build đã có image → --no-build ────
+echo "==> Tất cả service build đã có sẵn image → up --no-build"
+$DC up -d --no-build --remove-orphans
 
 # ── (4) Save image công khai cho lần sau (chỉ khi chưa có tar) ─
 if [ -n "${IMAGE_TAR:-}" ] && [ ! -f "$IMAGE_TAR" ]; then
