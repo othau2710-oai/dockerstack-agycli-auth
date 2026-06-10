@@ -9,12 +9,12 @@ RUN apt-get update \
 # ── Layer 2: Antigravity CLI (agy) — layer phụ thuộc network ─────
 # NOTE: install.sh sets up `agy` binary at /root/.local/bin/agy
 #
-# 💡 Bump AGY_CACHE_BUST (trong .env) để force rebuild layer này và tải agy mới nhất.
+# 💡 Bump AGYCLI_CACHE_BUILD (trong .env) để force rebuild layer này và tải agy mới nhất.
 ARG AGY_INSTALL_URL="https://antigravity.google/cli/install.sh"
-ARG AGY_CACHE_BUST="2026-06-10"
+ARG AGYCLI_CACHE_BUILD="2026-06-10"
 COPY agy-install.sh /tmp/agy-install.sh
 RUN AGY_INSTALL_URL="${AGY_INSTALL_URL}" \
-  AGY_CACHE_BUST="${AGY_CACHE_BUST}" \
+  AGYCLI_CACHE_BUILD="${AGYCLI_CACHE_BUILD}" \
   bash /tmp/agy-install.sh
 
 # ── Layer 3: wrapper script (đổi khi exec-wrapper.sh đổi) ───────

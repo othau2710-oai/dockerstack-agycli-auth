@@ -2,13 +2,13 @@
 # agy-install.sh — Tải và cài Antigravity CLI (agy)
 # Biến đầu vào (truyền qua env):
 #   AGY_INSTALL_URL  — URL của install.sh (default: https://antigravity.google/cli/install.sh)
-#   AGY_CACHE_BUST   — Dùng để bust Docker cache, không ảnh hưởng logic cài đặt
+#   AGYCLI_CACHE_BUILD   — Dùng để bust Docker cache, không ảnh hưởng logic cài đặt
 set -eu
 
 AGY_INSTALL_URL="${AGY_INSTALL_URL:-https://antigravity.google/cli/install.sh}"
 export PATH="/root/.local/bin:/usr/local/bin:${PATH}"
 
-echo "==> [agy-install] cache bust: ${AGY_CACHE_BUST:-unset}"
+echo "==> [agy-install] cache bust: ${AGYCLI_CACHE_BUILD:-unset}"
 echo "==> [agy-install] source: ${AGY_INSTALL_URL}"
 
 # 1. Download install.sh với retry
