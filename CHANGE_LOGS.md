@@ -2,6 +2,73 @@
 
 ---
 
+## [2.1.0] — 2026-06-10
+
+### Fixed — Auth fails on Azure pipeline (works on GitHub Actions)
+
+- **`services/agy-dev/Dockerfile`** — root cause of the Azure-only auth failures.
+  The `agy` CLI install used `curl … | bash || true`; the `|| true` **silently
+  swallowed install failures**, producing an image with **no working `agy`
+  binary**. Combined with Azure's weekly-rotated local buildx cache, a single
+  bad-network build poisoned the layer for the whole week → consistent Azure
+  failures while GitHub's scoped `type=gha` cache rebuilt cleanly.
+  Now: **retry up to 3×, no `|| true`, and verify `command -v agy` at
+  build-time** → a broken install **fails the build loudly** instead of caching
+  a silently-broken image. Install URL overridable via `--build-arg AGY_INSTALL_URL`.
+- **`services/agy-dev/exec-wrapper.sh`** — when `agy` is missing, emit a clear
+  `__AGY_BINARY_MISSING__` sentinel + exit 127 instead of `exec`-ing a
+  non-existent path (which produced opaque errors). Default print-timeout
+  raised `1s → 5s` (1s was too tight on cold Azure agents).
+- **`services/app/src/services/dockerService.js`** — `authProbeTimeout` default
+  `1s → 5s`; new configurable `urlWaitTimeoutMs` (env `AGY_URL_WAIT_TIMEOUT_MS`,
+  default 60s); new `checkAgyBinary()` pre-flight that verifies `agy` resolves
+  inside the container.
+- **`services/app/src/routes/login.js`** — pre-flight `checkAgyBinary` before
+  spawning; detects the `__AGY_BINARY_MISSING__` sentinel; the previously
+  **hardcoded 30s** URL-wait is now configurable and, on timeout, **attaches a
+  sanitized (token-redacted) tail of stdout/stderr** so the real cause is
+  visible instead of just "No auth URL within 30s".
+- **`compose.apps.yml`** — maps new `AGY_LOGIN_PRINT_TIMEOUT` /
+  `AGY_URL_WAIT_TIMEOUT_MS` to `app`; adds an `agy-dev` healthcheck that fails
+  if the `agy` binary is absent.
+- Note: `DOTENVRTDB_URL` was **not** the cause — it is an Azure DevOps secret
+  variable (works as designed); `urlExtract.js` regex left untouched.
+
+### Added / Changed — rclone: per-service, per-path configuration
+
+- **Multi-path config (indexed vars, 1A)** — `.env` now supports
+  `RCLONE_PATH_<N>_LOCAL / _REMOTE / _MODE / _GATE` for N = 1..10.
+  - **MODE per path (2A):** `restore | sync | both` — each path can pull-only,
+    push-only, or both, independently.
+  - **Per-path gate (3A):** `GATE=true` → app/litestream wait for that path's
+    restore before starting; `GATE=false` → restored in the background, app
+    starts immediately.
+- **Backward compatible:** leaving all `RCLONE_PATH_*` empty falls back to the
+  old single-path behavior using `RCLONE_REMOTE_TARGET` + `RCLONE_LOCAL_PATH`
+  (mode=both, gate=true). Existing `.env` files keep working unchanged.
+- **`services/rclone/lib.sh`** (new) — shared path-collection/mode helpers,
+  read by all three rclone scripts. Reads both `STACK_RCLONE_*` (forwarded by
+  compose) and plain `RCLONE_*`.
+- **`services/rclone/init.sh`** — validates the remote of **every** configured
+  path against the rclone.conf.
+- **`services/rclone/restore.sh`** — loops over restore-capable paths; takes
+  `--gated-only` / `--non-gated-only` filter so the same script serves both the
+  blocking restore container and the background restore in the sidecar.
+- **`services/rclone/sync.sh`** — first restores non-gated paths in the
+  background (non-blocking), then continuously syncs all `sync|both` paths;
+  per-path audit. Idles (no busy loop) if no path needs syncing.
+- **`docker-compose/compose.rclone.yml`** — forwards indexed path vars (1..10)
+  via YAML anchors under the `STACK_RCLONE_*` prefix (avoids rclone's
+  auto-mapping of `RCLONE_*` env → CLI flags); `rclone-restore` now runs with
+  `--gated-only`; `rclone-sync` also mounts `restore.sh` + `lib.sh`.
+- **`compose.rclone-gate.yml`** unchanged — app/litestream gate on
+  `rclone-restore`, which now only processes `GATE=true` paths (= per-path gate).
+- **`.env.example`** — documented the multi-path block + the two new auth
+  timing vars (`AGYCLI_AUTH_AGY_LOGIN_PRINT_TIMEOUT`,
+  `AGYCLI_AUTH_AGY_URL_WAIT_TIMEOUT_MS`).
+
+---
+
 ## [2.0.0] — 2026-04-09
 
 ### Breaking Changes

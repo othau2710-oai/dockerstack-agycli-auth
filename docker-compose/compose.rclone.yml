@@ -1,30 +1,113 @@
 # ================================================================
-#  compose.rclone.yml — Rclone 3-stage stack
+#  compose.rclone.yml — Rclone 3-stage stack (multi-path)
 #
 #  Container chính của repo restart mỗi 60 phút.
 #  → Mỗi lần khởi động lại phải kéo data từ remote về .docker-volumes
-#    TRƯỚC KHI app start, và liên tục đẩy data lên remote khi app chạy.
+#    TRƯỚC KHI app start (path GATE=true), và liên tục đẩy data lên remote.
 #
 #  Kiến trúc 3 service:
 #
 #    rclone-init     (one-shot)
 #       └─ Decode RCLONE_CONFIG_BASE64 → /config/rclone/rclone.conf
-#       └─ Validate config + list remotes
+#       └─ Validate config + validate remote của TỪNG path
 #
 #    rclone-restore  (one-shot, depends_on: rclone-init)
-#       └─ Pull remote → local (.docker-volumes)
+#       └─ Pull remote → local cho các path GATE=true, mode⊇restore
+#       └─ Block app/litestream cho tới khi xong (qua compose.rclone-gate.yml)
 #
 #    rclone-sync     (sidecar, depends_on: rclone-restore)
-#       └─ Push local → remote định kỳ (mỗi RCLONE_SYNC_INTERVAL_SEC)
+#       └─ Restore nền các path GATE=false (không block app)
+#       └─ Push local → remote định kỳ cho các path mode⊇sync
 #       └─ Định kỳ chạy `rclone check` để audit parity
 #
-#  Gate chặn app/litestream-restore khởi chạy trước khi rclone-restore
-#  hoàn tất nằm trong file riêng compose.rclone-gate.yml — chỉ được
-#  dc.sh nạp khi ENABLE_RCLONE=true.
+#  CẤU HÌNH NHIỀU PATH (1A — indexed vars trong .env):
+#    RCLONE_PATH_1_LOCAL / _REMOTE / _MODE / _GATE
+#    RCLONE_PATH_2_LOCAL / _REMOTE / _MODE / _GATE
+#    ... (tối đa 10 — khớp số biến enumerate bên dưới)
+#    MODE = restore | sync | both        GATE = true | false
+#
+#  Tương thích ngược: nếu không khai báo path nào, fallback dùng
+#  RCLONE_REMOTE_TARGET (+ RCLONE_LOCAL_PATH) như 1 path both+gate.
+#
+#  ⚠️ Vì sao forward dưới prefix STACK_RCLONE_*?
+#    rclone TỰ map biến môi trường RCLONE_* thành CLI flags (vd
+#    RCLONE_TRANSFERS → --transfers). Inject thẳng RCLONE_PATH_1_LOCAL
+#    sẽ bị rclone hiểu nhầm. Prefix STACK_ tách biệt config của stack
+#    khỏi cơ chế auto-map của rclone. lib.sh đọc cả STACK_ lẫn bản gốc.
 #
 #  Bật bằng: ENABLE_RCLONE=true
-#  Config:   chỉ cần RCLONE_CONFIG_BASE64 trong .env (không cần file)
 # ================================================================
+
+# Anchor: khối env path 1..10 forward chung cho mọi service rclone.
+x-rclone-paths-env: &rclone_paths_env
+  # Path #1
+  STACK_RCLONE_PATH_1_LOCAL:  "${RCLONE_PATH_1_LOCAL:-}"
+  STACK_RCLONE_PATH_1_REMOTE: "${RCLONE_PATH_1_REMOTE:-}"
+  STACK_RCLONE_PATH_1_MODE:   "${RCLONE_PATH_1_MODE:-}"
+  STACK_RCLONE_PATH_1_GATE:   "${RCLONE_PATH_1_GATE:-}"
+  # Path #2
+  STACK_RCLONE_PATH_2_LOCAL:  "${RCLONE_PATH_2_LOCAL:-}"
+  STACK_RCLONE_PATH_2_REMOTE: "${RCLONE_PATH_2_REMOTE:-}"
+  STACK_RCLONE_PATH_2_MODE:   "${RCLONE_PATH_2_MODE:-}"
+  STACK_RCLONE_PATH_2_GATE:   "${RCLONE_PATH_2_GATE:-}"
+  # Path #3
+  STACK_RCLONE_PATH_3_LOCAL:  "${RCLONE_PATH_3_LOCAL:-}"
+  STACK_RCLONE_PATH_3_REMOTE: "${RCLONE_PATH_3_REMOTE:-}"
+  STACK_RCLONE_PATH_3_MODE:   "${RCLONE_PATH_3_MODE:-}"
+  STACK_RCLONE_PATH_3_GATE:   "${RCLONE_PATH_3_GATE:-}"
+  # Path #4
+  STACK_RCLONE_PATH_4_LOCAL:  "${RCLONE_PATH_4_LOCAL:-}"
+  STACK_RCLONE_PATH_4_REMOTE: "${RCLONE_PATH_4_REMOTE:-}"
+  STACK_RCLONE_PATH_4_MODE:   "${RCLONE_PATH_4_MODE:-}"
+  STACK_RCLONE_PATH_4_GATE:   "${RCLONE_PATH_4_GATE:-}"
+  # Path #5
+  STACK_RCLONE_PATH_5_LOCAL:  "${RCLONE_PATH_5_LOCAL:-}"
+  STACK_RCLONE_PATH_5_REMOTE: "${RCLONE_PATH_5_REMOTE:-}"
+  STACK_RCLONE_PATH_5_MODE:   "${RCLONE_PATH_5_MODE:-}"
+  STACK_RCLONE_PATH_5_GATE:   "${RCLONE_PATH_5_GATE:-}"
+  # Path #6
+  STACK_RCLONE_PATH_6_LOCAL:  "${RCLONE_PATH_6_LOCAL:-}"
+  STACK_RCLONE_PATH_6_REMOTE: "${RCLONE_PATH_6_REMOTE:-}"
+  STACK_RCLONE_PATH_6_MODE:   "${RCLONE_PATH_6_MODE:-}"
+  STACK_RCLONE_PATH_6_GATE:   "${RCLONE_PATH_6_GATE:-}"
+  # Path #7
+  STACK_RCLONE_PATH_7_LOCAL:  "${RCLONE_PATH_7_LOCAL:-}"
+  STACK_RCLONE_PATH_7_REMOTE: "${RCLONE_PATH_7_REMOTE:-}"
+  STACK_RCLONE_PATH_7_MODE:   "${RCLONE_PATH_7_MODE:-}"
+  STACK_RCLONE_PATH_7_GATE:   "${RCLONE_PATH_7_GATE:-}"
+  # Path #8
+  STACK_RCLONE_PATH_8_LOCAL:  "${RCLONE_PATH_8_LOCAL:-}"
+  STACK_RCLONE_PATH_8_REMOTE: "${RCLONE_PATH_8_REMOTE:-}"
+  STACK_RCLONE_PATH_8_MODE:   "${RCLONE_PATH_8_MODE:-}"
+  STACK_RCLONE_PATH_8_GATE:   "${RCLONE_PATH_8_GATE:-}"
+  # Path #9
+  STACK_RCLONE_PATH_9_LOCAL:  "${RCLONE_PATH_9_LOCAL:-}"
+  STACK_RCLONE_PATH_9_REMOTE: "${RCLONE_PATH_9_REMOTE:-}"
+  STACK_RCLONE_PATH_9_MODE:   "${RCLONE_PATH_9_MODE:-}"
+  STACK_RCLONE_PATH_9_GATE:   "${RCLONE_PATH_9_GATE:-}"
+  # Path #10
+  STACK_RCLONE_PATH_10_LOCAL:  "${RCLONE_PATH_10_LOCAL:-}"
+  STACK_RCLONE_PATH_10_REMOTE: "${RCLONE_PATH_10_REMOTE:-}"
+  STACK_RCLONE_PATH_10_MODE:   "${RCLONE_PATH_10_MODE:-}"
+  STACK_RCLONE_PATH_10_GATE:   "${RCLONE_PATH_10_GATE:-}"
+  # Fallback 1-path (tương thích .env cũ)
+  STACK_RCLONE_REMOTE_TARGET: "${RCLONE_REMOTE_TARGET:-}"
+  STACK_RCLONE_LOCAL_PATH:    "${RCLONE_LOCAL_PATH:-/data}"
+  # Giới hạn số path quét (khớp số biến enumerate ở trên).
+  STACK_RCLONE_MAX_PATHS:     "10"
+  STACK_RCLONE_CONFIG_PATH:   "/config/rclone/rclone.conf"
+
+# Anchor: tham số vận hành chung (perf/log/...).
+x-rclone-ops-env: &rclone_ops_env
+  STACK_RCLONE_LOG_LEVEL:         "${RCLONE_LOG_LEVEL:-INFO}"
+  STACK_RCLONE_TRANSFERS:         "${RCLONE_TRANSFERS:-8}"
+  STACK_RCLONE_CHECKERS:          "${RCLONE_CHECKERS:-16}"
+  STACK_RCLONE_EXTRA_FLAGS:       "${RCLONE_EXTRA_FLAGS:-}"
+  STACK_RCLONE_PERF_FLAGS:        "${RCLONE_PERF_FLAGS:-}"
+  STACK_RCLONE_SYNC_INTERVAL_SEC: "${RCLONE_SYNC_INTERVAL_SEC:-30}"
+  STACK_RCLONE_DRY_RUN:           "${RCLONE_DRY_RUN:-false}"
+  STACK_RCLONE_AUDIT_EVERY:       "${RCLONE_AUDIT_EVERY:-10}"
+  STACK_RCLONE_BWLIMIT:           "${RCLONE_BWLIMIT:-}"
 
 services:
   # ── 1. INIT ────────────────────────────────────────────────────
@@ -33,35 +116,30 @@ services:
     profiles: [rclone]
     image: rclone/rclone:latest
     entrypoint: ["/bin/sh", "/scripts/init.sh"]
-    # Chỉ forward biến cần thiết. Rclone tự map RCLONE_* thành CLI flags,
-    # nên inject toàn bộ .env có thể làm biến rỗng như RCLONE_BWLIMIT fail parse.
     environment:
+      <<: [*rclone_paths_env, *rclone_ops_env]
       STACK_RCLONE_CONFIG_BASE64: "${RCLONE_CONFIG_BASE64:-}"
-      STACK_RCLONE_CONFIG_PATH: "/config/rclone/rclone.conf"
-      STACK_RCLONE_REMOTE_TARGET: "${RCLONE_REMOTE_TARGET:-}"
     volumes:
       - ./services/rclone/init.sh:/scripts/init.sh:ro
+      - ./services/rclone/lib.sh:/scripts/lib.sh:ro
       # rclone.conf được sinh ra ở đây và share cho 2 service kia
       - rclone_config:/config/rclone
     networks: [app_net]
     restart: "no"
 
-  # ── 2. RESTORE (remote → local) ────────────────────────────────
+  # ── 2. RESTORE (remote → local, gated only) ────────────────────
   rclone-restore:
     container_name: "rclone-restore"
     profiles: [rclone]
     image: rclone/rclone:latest
-    entrypoint: ["/bin/sh", "/scripts/restore.sh"]
+    # Chỉ restore các path GATE=true (block app). Path non-gated do
+    # rclone-sync restore nền.
+    entrypoint: ["/bin/sh", "/scripts/restore.sh", "--gated-only"]
     environment:
-      STACK_RCLONE_CONFIG_PATH: "/config/rclone/rclone.conf"
-      STACK_RCLONE_LOCAL_PATH: "/data"
-      STACK_RCLONE_REMOTE_TARGET: "${RCLONE_REMOTE_TARGET:-}"
-      STACK_RCLONE_LOG_LEVEL: "${RCLONE_LOG_LEVEL:-INFO}"
-      STACK_RCLONE_TRANSFERS: "${RCLONE_TRANSFERS:-8}"
-      STACK_RCLONE_CHECKERS: "${RCLONE_CHECKERS:-16}"
-      STACK_RCLONE_EXTRA_FLAGS: "${RCLONE_EXTRA_FLAGS:-}"
+      <<: [*rclone_paths_env, *rclone_ops_env]
     volumes:
       - ./services/rclone/restore.sh:/scripts/restore.sh:ro
+      - ./services/rclone/lib.sh:/scripts/lib.sh:ro
       - rclone_config:/config/rclone:ro
       - ${DOCKER_VOLUMES_ROOT:-./.docker-volumes}:/data
     networks: [app_net]
@@ -70,26 +148,19 @@ services:
       rclone-init:
         condition: service_completed_successfully
 
-  # ── 3. SYNC (local → remote, sidecar) ──────────────────────────
+  # ── 3. SYNC (restore nền non-gated + sync loop) ────────────────
   rclone-sync:
     container_name: "rclone-sync"
     profiles: [rclone]
     image: rclone/rclone:latest
     entrypoint: ["/bin/sh", "/scripts/sync.sh"]
     environment:
-      STACK_RCLONE_CONFIG_PATH: "/config/rclone/rclone.conf"
-      STACK_RCLONE_LOCAL_PATH: "/data"
-      STACK_RCLONE_REMOTE_TARGET: "${RCLONE_REMOTE_TARGET:-}"
-      STACK_RCLONE_SYNC_INTERVAL_SEC: "${RCLONE_SYNC_INTERVAL_SEC:-30}"
-      STACK_RCLONE_LOG_LEVEL: "${RCLONE_LOG_LEVEL:-INFO}"
-      STACK_RCLONE_DRY_RUN: "${RCLONE_DRY_RUN:-false}"
-      STACK_RCLONE_TRANSFERS: "${RCLONE_TRANSFERS:-8}"
-      STACK_RCLONE_CHECKERS: "${RCLONE_CHECKERS:-16}"
-      STACK_RCLONE_AUDIT_EVERY: "${RCLONE_AUDIT_EVERY:-10}"
-      STACK_RCLONE_BWLIMIT: "${RCLONE_BWLIMIT:-}"
-      STACK_RCLONE_EXTRA_FLAGS: "${RCLONE_EXTRA_FLAGS:-}"
+      <<: [*rclone_paths_env, *rclone_ops_env]
     volumes:
       - ./services/rclone/sync.sh:/scripts/sync.sh:ro
+      # sync.sh gọi restore.sh cho phần restore nền → mount luôn.
+      - ./services/rclone/restore.sh:/scripts/restore.sh:ro
+      - ./services/rclone/lib.sh:/scripts/lib.sh:ro
       - rclone_config:/config/rclone:ro
       - ${DOCKER_VOLUMES_ROOT:-./.docker-volumes}:/data
     networks: [app_net]

@@ -32,6 +32,9 @@ services:
       AGY_SNAPSHOT_COPY_LIMIT: "${AGYCLI_AUTH_AGY_SNAPSHOT_COPY_LIMIT:-80}"
       AGY_SNAPSHOT_MAX_FILE_BYTES: "${AGYCLI_AUTH_AGY_SNAPSHOT_MAX_FILE_BYTES:-52428800}"
       SESSION_TIMEOUT_MS: "${AGYCLI_AUTH_SESSION_TIMEOUT_MS:-600000}"
+      # ── Auth timing (môi trường chậm như Azure cần nới rộng) ──
+      AGY_LOGIN_PRINT_TIMEOUT: "${AGYCLI_AUTH_AGY_LOGIN_PRINT_TIMEOUT:-5s}"
+      AGY_URL_WAIT_TIMEOUT_MS: "${AGYCLI_AUTH_AGY_URL_WAIT_TIMEOUT_MS:-60000}"
       # ── Firebase Admin SDK ──
       FIREBASE_SERVICE_ACCOUNT_BASE64: "${AGYCLI_AUTH_FIREBASE_SERVICE_ACCOUNT_BASE64:-}"
       FIREBASE_PROJECT_ID: "${AGYCLI_AUTH_FIREBASE_PROJECT_ID:-}"
@@ -102,3 +105,16 @@ services:
     stdin_open: true
     networks: [app_net]
     restart: unless-stopped
+    # Healthcheck verify binary `agy` thực sự resolve được. Nếu image build
+    # hỏng (cài agy thất bại) → container unhealthy ngay, dễ phát hiện qua
+    # `docker ps` thay vì để login fail mơ hồ về sau.
+    healthcheck:
+      test:
+        - "CMD"
+        - "sh"
+        - "-lc"
+        - 'export PATH="/root/.local/bin:/usr/local/bin:$PATH"; command -v agy >/dev/null 2>&1 || exit 1'
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

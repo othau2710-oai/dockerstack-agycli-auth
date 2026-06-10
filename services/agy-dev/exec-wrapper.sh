@@ -26,7 +26,13 @@ shift || true
 
 RESOLVED_CMD="$(command -v "${CMD}" 2>/dev/null || true)"
 if [[ -z "${RESOLVED_CMD}" ]]; then
-  RESOLVED_CMD="${CMD}"
+  # Binary không tồn tại trong image (thường do build agy hỏng nhưng vẫn tạo
+  # image — xem services/agy-dev/Dockerfile). Thay vì exec một path không tồn
+  # tại (đẩy lỗi mơ hồ "no such file" cho host), in ra một sentinel rõ ràng để
+  # backend nhận diện và báo lỗi đúng nguyên nhân cho người dùng.
+  echo "__AGY_BINARY_MISSING__ command not found in container: ${CMD}" >&2
+  echo "__AGY_BINARY_MISSING__ PATH=${PATH}" >&2
+  exit 127
 fi
 
 # `auth-wait` was the old wrapper-facing command. The current agy CLI does not
@@ -35,7 +41,7 @@ fi
 if [[ "${CMD}" == "agy" && "${1:-}" == "auth-wait" ]]; then
   shift || true
   set -- \
-    "--print-timeout" "${AGY_LOGIN_PRINT_TIMEOUT:-1s}" \
+    "--print-timeout" "${AGY_LOGIN_PRINT_TIMEOUT:-5s}" \
     "--print" "${AGY_LOGIN_PROMPT:-__antigravity_auth_check__}" \
     "$@"
 fi

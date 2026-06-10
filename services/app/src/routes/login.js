@@ -61,6 +61,23 @@ router.post('/start', async (req, res) => {
     return res.status(500).json({ error: `Container not available: ${err.message}` });
   }
 
+  // ── Pre-flight: agy binary phải tồn tại trong container ──────────────────
+  // Trên Azure, image agy-dev có thể build hỏng nhưng vẫn chạy (lịch sử dùng
+  // `|| true` khi cài agy). Khi đó login luôn fail với thông báo mơ hồ
+  // "No auth URL". Check sớm để báo đúng nguyên nhân & gợi ý rebuild.
+  try {
+    const bin = await docker.checkAgyBinary(docker.CONFIG.containerName);
+    if (!bin.ok) {
+      docker.releaseMutex(sessionId);
+      log.err(`agy binary check failed: ${bin.error}`);
+      return res.status(500).json({ error: `agy CLI unavailable: ${bin.error}` });
+    }
+    log.ok(`agy binary resolved at ${bin.path}`);
+  } catch (err) {
+    // Không chặn cứng nếu việc check gặp lỗi bất thường — chỉ cảnh báo.
+    log.warn(`agy binary check errored (continuing): ${err.message}`);
+  }
+
   const session = sessions.createSession({ sessionId, email });
   emitAuthLog(sessionId, 'info', `Container ${docker.CONFIG.containerName} is running; preparing auth session.`);
 
@@ -114,6 +131,20 @@ router.post('/start', async (req, res) => {
       // satisfied) — we just log it. The SSE consumer can still see status.
       log.warn(`agy notice for ${sessionId}: ${text.trim().slice(0, 200)}`);
     }
+
+    // Sentinel từ exec-wrapper.sh khi binary `agy` không tồn tại trong image.
+    // Báo lỗi đúng nguyên nhân ngay thay vì để người dùng chờ hết timeout.
+    if (text.includes('__AGY_BINARY_MISSING__') && session.status !== 'success' && session.status !== 'error') {
+      sessions.updateStatus(sessionId, 'error');
+      sessions.emitSSE(sessionId, {
+        type: 'error',
+        message:
+          "agy CLI không có trong container agy-dev (image build hỏng). " +
+          "Rebuild image: docker compose build --no-cache agy-dev. " +
+          "Trên Azure, xoá local buildx cache cho agy-dev rồi build lại.",
+      });
+      emitAuthLog(sessionId, 'error', 'agy binary missing inside container (build broken).');
+    }
   }
 
   child.stdout.on('data', (c) => handleChunk(c, false));
@@ -138,19 +169,57 @@ router.post('/start', async (req, res) => {
     sessions.updateStatus(sessionId, 'error');
   });
 
-  // 30s safety: if no URL yet, emit warning (do not destroy — user may retry)
+  // Configurable safety timeout: nếu chưa có URL, emit lỗi KÈM CHẨN ĐOÁN
+  // (trích đoạn stdout/stderr đã ẩn token) để lộ nguyên nhân thật, thay vì
+  // chỉ "No auth URL within 30s" như trước. Timeout cấu hình qua
+  // AGY_URL_WAIT_TIMEOUT_MS (mặc định 60s) — môi trường chậm (Azure) cần dài hơn.
+  const urlWaitMs = docker.CONFIG.urlWaitTimeoutMs || 60_000;
   setTimeout(() => {
     const s = sessions.getSession(sessionId);
-    if (s && !s.authUrl && s.status !== 'success') {
+    if (s && !s.authUrl && s.status !== 'success' && s.status !== 'error') {
+      const waitSec = Math.round(urlWaitMs / 1000);
+      const diag = buildAuthDiagnostics(s);
+      log.err(`No auth URL for ${sessionId} within ${waitSec}s. stdout/stderr tail:\n${diag.text}`);
       sessions.emitSSE(sessionId, {
         type: 'error',
-        message: 'No auth URL detected within 30s. Try resetting and starting again.',
+        message:
+          `No auth URL detected within ${waitSec}s. ` +
+          (diag.hint ? `${diag.hint} ` : '') +
+          'Xem chi tiết log bên dưới hoặc thử reset rồi bắt đầu lại.',
+        details: { diagnostics: diag.text },
       });
+      emitAuthLog(sessionId, 'error', `Timeout chờ OAuth URL (${waitSec}s).`, { diagnostics: diag.text });
     }
-  }, 30_000);
+  }, urlWaitMs);
 
   return res.json({ success: true, sessionId });
 });
+
+// Ẩn token/secret rồi trả về phần đuôi stdout/stderr để chẩn đoán khi timeout.
+function redactSecrets(text) {
+  return String(text || '')
+    // OAuth/credential token: chuỗi dài liên tục → rút gọn
+    .replace(/([A-Za-z0-9_-]{40,})/g, (m) => `${m.slice(0, 6)}…[${m.length} chars redacted]`)
+    // Tham số nhạy cảm trong URL
+    .replace(/([?&](?:code|token|access_token|refresh_token|client_secret)=)[^&\s]+/gi, '$1[redacted]');
+}
+
+function buildAuthDiagnostics(session) {
+  const out = redactSecrets(session.stdoutBuf || '').trim();
+  const err = redactSecrets(session.stderrBuf || '').trim();
+  const tail = (s) => (s ? s.split(/\r?\n/).slice(-20).join('\n') : '(empty)');
+  let hint = '';
+  const combined = `${out}\n${err}`;
+  if (/__AGY_BINARY_MISSING__/.test(combined)) {
+    hint = 'Nguyên nhân: binary `agy` không có trong container (image build hỏng) — rebuild agy-dev.';
+  } else if (!out && !err) {
+    hint = 'agy không in ra gì — có thể container/agy không khởi động đúng. Kiểm tra `docker logs agy-dev`.';
+  }
+  return {
+    hint,
+    text: `--- stdout (tail) ---\n${tail(out)}\n\n--- stderr (tail) ---\n${tail(err)}`,
+  };
+}
 
 // ─── GET /api/login/stream/:sessionId ────────────────────────────────────────
 

@@ -32,7 +32,13 @@ const CONFIG = {
   containerName: process.env.CONTAINER_NAME || "agy-dev",
   credentialPath: process.env.AGY_CREDENTIAL_PATH || "/root/.gemini/antigravity-cli/antigravity-oauth-token",
   authProbePrompt: process.env.AGY_LOGIN_PROMPT || "__antigravity_auth_check__",
-  authProbeTimeout: process.env.AGY_LOGIN_PRINT_TIMEOUT || "1s",
+  // ⬆️ Default nâng 1s → 5s: trên Azure cold-start agent, 1s quá gắt khiến agy
+  //    chưa kịp in OAuth URL trong print-mode. Vẫn override được qua env.
+  authProbeTimeout: process.env.AGY_LOGIN_PRINT_TIMEOUT || "5s",
+  // ⏱️ Thời gian backend chờ OAuth URL xuất hiện trên stdout/stderr (ms).
+  //    Trước đây hardcode 30s trong login.js, không cấu hình được → trên môi
+  //    trường chậm (Azure) thường timeout trước khi URL kịp in. Mặc định 60s.
+  urlWaitTimeoutMs: parseInt(process.env.AGY_URL_WAIT_TIMEOUT_MS || "60000", 10),
   credentialCheckTimeoutMs: parseInt(process.env.AGY_CREDENTIAL_CHECK_TIMEOUT || "20000", 10),
   credentialCheckIntervalMs: parseInt(process.env.AGY_CREDENTIAL_CHECK_INTERVAL || "500", 10),
   codeWriteTimeoutMs: 15_000,
@@ -614,6 +620,50 @@ async function isContainerRunning(containerName) {
 }
 
 /**
+ * Verify the `agy` binary actually resolves inside the container.
+ *
+ * Trên Azure, build agy có thể hỏng nhưng vẫn tạo image (lịch sử dùng
+ * `|| true`). Khi đó container chạy bình thường nhưng KHÔNG có `agy` →
+ * mọi login fail mơ hồ ("No auth URL within Ns"). Hàm này cho phép backend
+ * phát hiện sớm và báo lỗi đúng nguyên nhân.
+ *
+ * Trả về: { ok, path, error }
+ */
+async function checkAgyBinary(containerName = CONFIG.containerName) {
+  try {
+    const { stdout } = await execDocker(
+      [
+        "exec",
+        containerName,
+        "sh",
+        "-lc",
+        'export PATH="/root/.local/bin:/usr/local/bin:$PATH"; command -v agy',
+      ],
+      { timeoutMs: 8000 },
+    );
+    const resolved = stdout.trim();
+    if (resolved) {
+      return { ok: true, path: resolved, error: null };
+    }
+    return {
+      ok: false,
+      path: null,
+      error:
+        "Binary 'agy' không tồn tại trong container agy-dev. Image có thể đã build hỏng (cài agy thất bại). " +
+        "Hãy rebuild image agy-dev (docker compose build --no-cache agy-dev) — và trên Azure, xoá local buildx cache cho service này.",
+    };
+  } catch (err) {
+    const cls = classifyDockerError(err);
+    return {
+      ok: false,
+      path: null,
+      error: `[${cls.code}] ${cls.hint || err.message}`,
+    };
+  }
+}
+
+
+/**
  * Ensure container is running. If not, run `docker compose up -d`.
  * Falls back gracefully if compose is not available.
  */
@@ -773,6 +823,7 @@ module.exports = {
   CONFIG,
   ensureContainerRunning,
   isContainerRunning,
+  checkAgyBinary,
   checkDockerEnv,
   createFifo,
   cleanupFifo,

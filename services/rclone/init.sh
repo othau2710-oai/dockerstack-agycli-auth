@@ -6,16 +6,18 @@
 #    1. Đọc RCLONE_CONFIG_BASE64 từ env
 #    2. Decode về /config/rclone/rclone.conf
 #    3. Validate config bằng `rclone config dump`
-#    4. In ra danh sách remotes phát hiện được
+#    4. Validate MỌI remote dùng trong các path (multi-path) có trong config
+#    5. In ra danh sách remotes phát hiện được + bảng path
 #
 #  Service này chạy ONE-SHOT, exit 0 khi xong, exit 1 nếu lỗi.
 #  Tất cả service rclone khác depends_on service này.
 # ================================================================
 set -e
 
-CONFIG_PATH="${STACK_RCLONE_CONFIG_PATH:-${RCLONE_CONFIG_PATH:-/config/rclone/rclone.conf}}"
-CONFIG_B64="${STACK_RCLONE_CONFIG_BASE64:-${RCLONE_CONFIG_BASE64:-}}"
-REMOTE_TARGET="${STACK_RCLONE_REMOTE_TARGET:-${RCLONE_REMOTE_TARGET:-}}"
+# shellcheck source=/scripts/lib.sh
+. /scripts/lib.sh
+
+CONFIG_B64="$(_env_get RCLONE_CONFIG_BASE64)"
 CONFIG_DIR=$(dirname "$CONFIG_PATH")
 
 echo "================================================================="
@@ -75,33 +77,50 @@ if [ -z "$REMOTES" ]; then
   exit 1
 fi
 
-if [ -z "$REMOTE_TARGET" ]; then
-  echo "[FATAL] RCLONE_REMOTE_TARGET chưa được set trong .env." >&2
-  exit 1
-fi
-
-REMOTE_NAME="${REMOTE_TARGET%%:*}"
-if [ -z "$REMOTE_NAME" ] || [ "$REMOTE_NAME" = "$REMOTE_TARGET" ]; then
-  echo "[FATAL] RCLONE_REMOTE_TARGET sai format: $REMOTE_TARGET" >&2
-  echo "        Format đúng: <tên_remote_trong_rclone.conf>:<bucket_hoặc_path>" >&2
-  exit 1
-fi
-
-if ! printf '%s\n' "$REMOTES" | grep -Fxq "${REMOTE_NAME}:"; then
-  echo "[FATAL] Remote '${REMOTE_NAME}:' trong RCLONE_REMOTE_TARGET không có trong config." >&2
-  echo "        Remote phát hiện được:" >&2
-  printf '          %s\n' $REMOTES >&2
-  exit 1
-fi
-
-echo "[OK] Remote target matches detected remote: ${REMOTE_NAME}:"
-
-REMOTE_COUNT=0
 echo "$REMOTES" | while IFS= read -r r; do
   [ -z "$r" ] && continue
   TYPE=$(rclone --config "$CONFIG_PATH" config show "${r%:}" 2>/dev/null \
           | awk -F= '/^type/{gsub(/ /,"",$2); print $2; exit}')
   printf "  • %-20s  type=%s\n" "$r" "${TYPE:-?}"
+done
+
+# ── 5. Thu thập & validate các path (multi-path) ─────────────────
+echo ""
+echo "── Paths configured ─────────────────────────────────────────────"
+rclone_collect_paths
+
+if [ "${RCLONE_PATH_COUNT:-0}" -eq 0 ]; then
+  echo "[FATAL] Không có path nào được cấu hình." >&2
+  echo "        Khai báo RCLONE_PATH_1_LOCAL/REMOTE/MODE/GATE trong .env," >&2
+  echo "        hoặc đặt RCLONE_REMOTE_TARGET (+ RCLONE_LOCAL_PATH) cho chế độ 1-path." >&2
+  exit 1
+fi
+
+rclone_print_paths
+
+# Validate mỗi remote của từng path tồn tại trong config.
+echo ""
+echo "── Validating each path's remote ────────────────────────────────"
+i=1
+while [ "$i" -le "$RCLONE_PATH_COUNT" ]; do
+  REMOTE_TARGET="$(rclone_path_field "$i" REMOTE)"
+  REMOTE_NAME="${REMOTE_TARGET%%:*}"
+
+  if [ -z "$REMOTE_NAME" ] || [ "$REMOTE_NAME" = "$REMOTE_TARGET" ]; then
+    echo "[FATAL] Path #$i: REMOTE sai format: '$REMOTE_TARGET'" >&2
+    echo "        Format đúng: <tên_remote_trong_rclone.conf>:<bucket_hoặc_path>" >&2
+    exit 1
+  fi
+
+  if ! printf '%s\n' "$REMOTES" | grep -Fxq "${REMOTE_NAME}:"; then
+    echo "[FATAL] Path #$i: remote '${REMOTE_NAME}:' không có trong config." >&2
+    echo "        Remote phát hiện được:" >&2
+    printf '          %s\n' $REMOTES >&2
+    exit 1
+  fi
+
+  echo "  [OK] Path #$i → remote '${REMOTE_NAME}:' khớp config."
+  i=$((i + 1))
 done
 
 echo ""
